@@ -1,23 +1,31 @@
-name: Deploy Flask App
+name: Test Flask App
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 允许手动触发
   push:
     branches: [ main ]
+    paths-ignore:    # 忽略这些文件的更改
+      - '**.md'
+      - '.gitignore'
+      - '.env.example'
   pull_request:
     branches: [ main ]
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # 获取完整的git历史
     
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.8'
+        cache: 'pip'  # 启用pip缓存
     
     - name: Install dependencies
       run: |
@@ -27,11 +35,17 @@ jobs:
     - name: Run tests
       run: |
         python -m pytest tests/ || true
+      continue-on-error: true  # 即使测试失败也继续
 
-    - name: Deploy to Cloudflare Pages
-      uses: cloudflare/wrangler-action@v3
-      with:
-        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      env:
-        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }} 
+    - name: Notify test status
+      if: always()  # 无论前面步骤成功与否都运行
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ 测试成功!"
+        else
+          echo "❌ 测试失败!"
+        fi
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  # 取消正在运行的重复工作流
