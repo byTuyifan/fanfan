@@ -27,15 +27,50 @@ jobs:
         python-version: '3.8'
         cache: 'pip'  # 启用pip缓存
     
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-netifaces net-tools
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install netifaces
+
+    - name: Start Flask App
+      run: |
+        echo "启动 Flask 应用..."
+        python app.py &
+        sleep 5  # 等待应用启动
         
+    - name: Show Server Info
+      run: |
+        echo "📱 服务器信息："
+        echo "内部地址："
+        ifconfig | grep "inet " | awk '{print $2}'
+        echo "\n端口：5000"
+        echo "\n进程信息："
+        ps aux | grep python
+        echo "\n网络连接："
+        netstat -tulpn | grep 5000
+        
+    - name: Keep server running
+      run: |
+        echo "服务器已启动，保持运行 10 分钟供测试..."
+        sleep 600  # 保持运行 10 分钟
+
     - name: Run tests
       run: |
         python -m pytest tests/ || true
       continue-on-error: true  # 即使测试失败也继续
+
+    - name: Show deployment URLs
+      run: |
+        echo "📱 访问地址："
+        echo "主域名: https://device-logger.pages.dev"
+        echo "测试域名: https://${{ github.ref_name }}--device-logger.pages.dev"
+        echo "仓库地址: https://github.com/${{ github.repository }}"
 
     - name: Notify test status
       if: always()  # 无论前面步骤成功与否都运行

@@ -2,6 +2,7 @@ from flask import Flask, request
 import logging
 from datetime import datetime
 import socket
+import netifaces
 
 app = Flask(__name__)
 
@@ -14,13 +15,19 @@ logging.basicConfig(
 
 def get_local_ip():
     try:
-        # 获取主机名
-        hostname = socket.gethostname()
-        # 获取本机IP地址
-        local_ip = socket.gethostbyname(hostname)
-        return local_ip
+        # 获取所有网络接口的IP地址
+        ips = []
+        for interface in netifaces.interfaces():
+            try:
+                addrs = netifaces.ifaddresses(interface)
+                if netifaces.AF_INET in addrs:
+                    for addr in addrs[netifaces.AF_INET]:
+                        ips.append(addr['addr'])
+            except:
+                continue
+        return ips
     except:
-        return "无法获取本机IP"
+        return ["无法获取本机IP"]
 
 @app.route('/')
 def get_device_info():
@@ -44,5 +51,8 @@ if __name__ == '__main__':
     local_ip = get_local_ip()
     print(f"\n可通过以下地址访问：")
     print(f"本地访问: http://localhost:5000")
-    print(f"局域网访问: http://{local_ip}:5000\n")
+    print("所有可用地址:")
+    for ip in local_ip:
+        print(f"http://{ip}:5000")
+    print("")
     app.run(host='0.0.0.0', port=5000) 
